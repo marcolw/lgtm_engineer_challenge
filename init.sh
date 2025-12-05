@@ -1,81 +1,86 @@
-# Update your package list
-sudo apt update
+#!/bin/bash
 
-# INstall Terraform
+# Define the root name
+# REPO_NAME="lgtm_engineer_challenge"
 
-# Add HashiCorp GPG key
-curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg
+# echo "Creating Repository Structure for $REPO_NAME..."
 
-# Add the HashiCorp Linux repository
-echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+# # Create Root
+# mkdir -p $REPO_NAME
+# cd $REPO_NAME
 
-# Update and install Terraform
-sudo apt update && sudo apt install terraform
+# 1. Create Github Workflows
+mkdir -p .github/workflows
+touch .github/workflows/{infra-plan.yaml,infra-apply.yaml,build-apps.yaml}
 
+# 2. Create Infrastructure (Terraform)
+# Structure: Modules for reusability, Live for environment instantiations
+mkdir -p infra/modules/{eks,vpc,iam}
+mkdir -p infra/live/{dev,prod}
+touch infra/live/dev/{main.tf,variables.tf,outputs.tf,backend.conf,terraform.tfvars}
+touch infra/live/prod/{main.tf,variables.tf,outputs.tf,backend.conf,terraform.tfvars}
 
-# INstall AWS CLI
-# Download the installation script
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+# 3. Create Applications (Polyglot)
+# Creating folders for Go, Python, DotNet, Node, Java
+APPS=("go-service" "python-service" "dotnet-service" "nodejs-service" "java-service")
+for app in "${APPS[@]}"; do
+    mkdir -p apps/$app
+    touch apps/$app/{Dockerfile,README.md}
+    # Create specific entry files for realism
+    if [[ "$app" == "go-service" ]]; then touch apps/$app/main.go; fi
+    if [[ "$app" == "python-service" ]]; then touch apps/$app/app.py; fi
+    if [[ "$app" == "nodejs-service" ]]; then touch apps/$app/index.js; fi
+    if [[ "$app" == "java-service" ]]; then mkdir -p apps/$app/src/main/java; fi
+    if [[ "$app" == "dotnet-service" ]]; then touch apps/$app/Program.cs; fi
+done
 
-# Unzip the installer
-unzip awscliv2.zip
+# 4. Create Kubernetes / GitOps Manifests
+# Platform: ArgoCD configurations
+mkdir -p k8s/platform
+touch k8s/platform/{bootstrap.yaml,values-argocd.yaml}
 
-# Run the install
-sudo ./aws/install
+# Observability: Configuration for the stack
+# We will assume Helm Chart usage, so we mostly need values.yaml files
+mkdir -p k8s/observability/{prometheus-stack,loki-stack,tempo,otel-collector}
+touch k8s/observability/prometheus-stack/values.yaml
+touch k8s/observability/loki-stack/values.yaml
+touch k8s/observability/tempo/values.yaml
+touch k8s/observability/otel-collector/{values.yaml,collector-config.yaml}
 
-# Verify the installation
-aws --version
+# Demo Apps: Helm releases or K8s Manifests for the apps
+mkdir -p k8s/demo-apps
+touch k8s/demo-apps/{Chart.yaml,values.yaml}
+# Create folders for individual app overrides if necessary
+for app in "${APPS[@]}"; do
+    mkdir -p k8s/demo-apps/$app
+    touch k8s/demo-apps/$app/values.yaml
+done
 
-# Cleanup
-rm -rf awscliv2.zip
+# 5. Scripts
+mkdir -p scripts
+touch scripts/{bootstrap-argocd.sh,cleanup.sh,load-generator.sh}
+chmod +x scripts/*.sh
 
+# 6. README and Misc
+touch README.md
+touch .gitignore
 
-# Ansible
+# Populate a simple .gitignore
+cat <<EOT >> .gitignore
+.terraform
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+.DS_Store
+node_modules/
+bin/
+obj/
+target/
+__pycache__/
+EOT
 
-# Install software-properties-common if not installed (for managing PPAs)
-sudo apt install software-properties-common
-
-# Add the official Ansible PPA
-sudo add-apt-repository --yes --update ppa:ansible/ansible
-
-# Install Ansible
-sudo apt install ansible
-
-# version
-ansible --version
-
-
-# Velero
-
-# Download the latest Velero release (replace version with the latest)
-VELERO_VERSION=$(curl -s https://api.github.com/repos/vmware-tanzu/velero/releases/latest | grep tag_name | cut -d '"' -f 4)
-
-# Download the Velero tar.gz for Linux
-curl -LO https://github.com/vmware-tanzu/velero/releases/download/${VELERO_VERSION}/velero-${VELERO_VERSION}-linux-amd64.tar.gz
-
-# Extract the tar.gz file
-tar -xvf velero-${VELERO_VERSION}-linux-amd64.tar.gz
-
-# Move the Velero binary to /usr/local/bin
-sudo mv velero-${VELERO_VERSION}-linux-amd64/velero /usr/local/bin/
-
-# Verify the Velero installation
-velero version
-
-
-# Istio
-
-# Download the latest Istio release (replace version with the latest)
-ISTIO_VERSION=$(curl -sL https://istio.io/latest | grep "The latest" | awk '{print $4}')
-
-# Download the Istio tar.gz for the latest version
-curl -L https://istio.io/downloadIstio | sh -
-
-# Move into the Istio directory
-cd istio-${ISTIO_VERSION}
-
-# Move the istioctl binary to /usr/local/bin
-sudo mv bin/istioctl /usr/local/bin/
-
-# Verify the istioctl installation
-istioctl version
+echo "----------------------------------------------------------------"
+echo "Repository $REPO_NAME created successfully."
+echo "----------------------------------------------------------------"
+echo "Next Steps:"
+echo "1. Initialize git: 'git init'"
