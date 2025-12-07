@@ -61,7 +61,11 @@ This is a monorepo containing Infrastructure, Application Code, and Kubernetes M
     * Correlate Logs with Traces using the TraceID injected into logs.
     * View Metrics for error rates in AlertManager.
 
+![alt text](components.png)
+
 ## Future Enhancements
 * Implement Service Level Objectives (SLOs) using Sloth.
 * Add Synthetic Monitoring (Blackbox exporter).
 * Integrate PagerDuty for critical alerts.
+
+ 

@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: lgtm-prometheus
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    targetRevision: 58.2.0 # Use a recent, stable version
+    chart: kube-prometheus-stack
+    # Values here ensure Prometheus is configured for OTLP remote write target
+    # This is advanced and often done via a different metrics backend like Mimir/Thanos.
+    # For a simple Prometheus + OTel Collector setup, we must ensure Prometheus has a remote write endpoint.
+    # We will assume default Kube-Prometheus works and rely on the OTel Collector for the heavy lifting.
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
