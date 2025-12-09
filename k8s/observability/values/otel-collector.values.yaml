@@ -1,0 +1,68 @@
+# k8s/observability/values/otel-collector.values.yaml
+mode: deployment
+
+# In the Helm chart, we define the pipeline configuration under 'config'
+config:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+  processors:
+    batch: {}
+    # Enrich telemetry with K8s metadata (Pod name, Namespace, etc.)
+    k8sattributes:
+      auth_type: "kubeConfig"
+      extract:
+        metadata:
+          - "k8s.namespace.name"
+          - "k8s.deployment.name"
+          - "k8s.pod.name"
+          - "k8s.node.name"
+
+  exporters:
+    # TRACES -> Tempo (using the service DNS name)
+    otlp/tempo:
+      endpoint: "lgtm-tempo.monitoring.svc.cluster.local:4317"
+      tls:
+        insecure: true
+
+    # METRICS -> Prometheus (Remote Write)
+    # Note: Ensure the DNS name matches your Prometheus service!
+    prometheusremotewrite:
+      endpoint: "http://lgtm-prometheus-kube-prome-prometheus.monitoring.svc.cluster.local:9090/api/v1/write"
+
+    # LOGS -> Loki
+    otlp/loki:
+      endpoint: "http://lgtm-loki.monitoring.svc.cluster.local:3100"
+      tls:
+        insecure: true
+
+  service:
+    pipelines:
+      traces:
+        receivers: [otlp]
+        processors: [k8sattributes, batch]
+        exporters: [otlp/tempo]
+      metrics:
+        receivers: [otlp]
+        processors: [k8sattributes, batch]
+        exporters: [prometheusremotewrite]
+      logs:
+        receivers: [otlp]
+        processors: [k8sattributes, batch]
+        exporters: [otlp/loki]
+
+# We need to give the Collector permissions to query K8s API for the k8sattributes processor
+clusterRole:
+  create: true
+  rules:
+  - apiGroups: [""]
+    resources: ["pods", "namespaces", "nodes"]
+    verbs: ["get", "watch", "list"]
+  - apiGroups: ["apps"]
+    resources: ["replicasets"]
+    verbs: ["get", "watch", "list"]

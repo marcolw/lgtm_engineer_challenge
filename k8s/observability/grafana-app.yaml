@@ -7,51 +7,11 @@ spec:
   project: default
   source:
     repoURL: https://grafana.github.io/helm-charts
-    targetRevision: 7.3.10 # Use a recent, stable version
     chart: grafana
+    targetRevision: 7.3.0
     helm:
-      values: |
-        # Configuration for Grafana via Helm Values
-        grafana.ini:
-          server:
-            root_url: "%(protocol)s://%(domain)s/grafana/" # Good practice for Load Balancer/Ingress
-
-        # Expose Grafana via LoadBalancer
-        service:
-          type: LoadBalancer
-          port: 80
-          targetPort: 3000
-
-        # Pre-configure the Data Sources (The LGTM Integration)
-        datasources:
-          datasources.yaml:
-            apiVersion: 1
-            datasources:
-            - name: Prometheus
-              uid: prom
-              type: prometheus
-              url: http://prometheus-kube-prometheus-prometheus.monitoring.svc.cluster.local:9090
-              access: proxy
-              isDefault: true
-            - name: Loki
-              uid: loki
-              type: loki
-              url: http://loki.monitoring.svc.cluster.local:3100
-              access: proxy
-            - name: Tempo
-              uid: tempo
-              type: tempo
-              url: http://tempo.monitoring.svc.cluster.local:3200
-              access: proxy
-              # Critical for correlating logs/metrics to traces
-              jsonData:
-                tracesToLogs:
-                  datasourceUid: loki
-                tracesToMetrics:
-                  datasourceUid: prom
-
-        # Default admin credentials (CHANGE IN PRODUCTION)
-        adminPassword: admin
+      valueFiles:
+      - $values/k8s/observability/grafana.values.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring

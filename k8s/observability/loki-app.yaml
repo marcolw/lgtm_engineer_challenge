@@ -1,17 +1,17 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: lgtm-prometheus
+  name: lgtm-loki
   namespace: argocd
 spec:
   project: default
   source:
-    repoURL: https://prometheus-community.github.io/helm-charts
-    chart: kube-prometheus-stack
-    targetRevision: 56.0.0
+    repoURL: https://grafana.github.io/helm-charts
+    chart: loki
+    targetRevision: 5.43.0
     helm:
       valueFiles:
-      - $values/k8s/observability/prometheus.values.yaml
+      - $values/k8s/observability/loki.values.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring

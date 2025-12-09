@@ -1,0 +1,17 @@
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+    - name: Prometheus
+      type: prometheus
+      url: http://lgtm-prometheus-kube-prome-prometheus.monitoring.svc.cluster.local:9090
+      access: proxy
+      isDefault: true
+    - name: Loki
+      type: loki
+      url: http://lgtm-loki.monitoring.svc.cluster.local:3100
+      access: proxy
+    - name: Tempo
+      type: tempo
+      url: http://lgtm-tempo.monitoring.svc.cluster.local:3100
+      access: proxy

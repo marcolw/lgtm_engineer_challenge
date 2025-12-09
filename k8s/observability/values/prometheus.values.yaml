@@ -1,0 +1,13 @@
+# Disable the bundled Grafana so we can manage it separately
+grafana:
+  enabled: false
+
+# Disable the bundled Prometheus Operator if you want strict control,
+# but usually, we keep it enabled to manage ServiceMonitors.
+prometheusOperator:
+  enabled: true
+
+prometheus:
+  prometheusSpec:
+    # Enable Remote Write so OTel Collector can push metrics here if needed
+    enableRemoteWriteReceiver: true

@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: lgtm-otel-collector
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://open-telemetry.github.io/opentelemetry-helm-charts
+    chart: opentelemetry-collector
+    targetRevision: 0.80.0 # Verify latest stable
+    helm:
+      valueFiles:
+      # This tells ArgoCD to look in YOUR repo for the values file
+      # Note: We use $values/ to refer to the root of the repo being checked out alongside the chart
+      - $values/k8s/observability/otel-collector.values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated: 
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
