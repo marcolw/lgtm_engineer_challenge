@@ -1,0 +1,17 @@
+{
+  "name": "nodejs-lgtm-service",
+  "version": "1.0.0",
+  "description": "Entry-point service for the LGTM demo chain.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "axios": "^1.7.2",
+    "@opentelemetry/api": "latest", 
+    "@opentelemetry/sdk-node": "latest",
+    "@opentelemetry/exporter-trace-otlp-grpc": "latest",
+    "@opentelemetry/instrumentation-http": "^0.53.0"
+  }
+}

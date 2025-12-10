@@ -1,15 +1,29 @@
-# Stage 1: Build
-FROM golang:1.25-alpine AS builder
+# Stage 1: The Builder Stage
+# CRITICAL FIX: Use a valid tag that gives the latest Go version.
+FROM golang:latest AS builder 
 WORKDIR /app
-COPY go.mod go.sum ./
-RUN go mod download
-COPY *.go ./
-RUN CGO_ENABLED=0 GOOS=linux go build -o /go-service
 
-# Stage 2: Runtime (Distroless for security & tiny size)
-FROM gcr.io/distroless/static-debian11
-WORKDIR /
-COPY --from=builder /go-service /go-service
+# 1. Copy and download dependencies
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
+
+# 2. Copy the rest of the source code and build
+COPY . .
+# CRITICAL FIX 2: Ensures the binary is statically linked for Alpine runtime
+RUN CGO_ENABLED=0 GOOS=linux go build -o go-service main.go 
+
+# Stage 2: The Final Runtime Stage
+# Use a minimal image (alpine) that is safe for CGO_ENABLED=0 binaries
+FROM alpine:latest
+WORKDIR /app
+
+# Install necessary runtime dependencies (especially SSL certs)
+RUN apk add --no-cache ca-certificates
+
+# Copy the compiled binary from the builder stage
+COPY --from=builder /app/go-service .
+
 EXPOSE 8080
-USER nonroot:nonroot
-ENTRYPOINT ["/go-service"]
+
+CMD ["./go-service"]

@@ -1,0 +1,24 @@
+receivers:
+  # Accepts OTLP data (traces, metrics, logs) from the demo services
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317 # The services send data to 'otel-collector:4317'
+
+exporters:
+  # Export traces directly to Jaeger's OTLP gRPC endpoint.
+  # 'jaeger' is the service name in the docker-compose network.
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true # Necessary for development in a local Docker network
+
+  # Optional: For debugging the Collector output
+  logging:
+    loglevel: debug
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      exporters: [otlp/jaeger, logging]
