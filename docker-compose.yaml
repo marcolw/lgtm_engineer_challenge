@@ -1,40 +1,41 @@
 version: '3.8'
 services:
-  # 1. Entry Point Service
+  # 1. Entry Point Service (NODE) - Requires explicit protocol and full URL
   node-service:
     build:
       context: ./apps/nodejs-service
     ports:
-      # Expose the correct port 3000 used by index.js
       - "8080:3000" 
     environment:
-      # 1. Set the service name (replaces Resource constructor)
       OTEL_SERVICE_NAME: node-lgtm-service
-      # 2. Set the collector endpoint (uses the internal Docker service name)
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
-      # 3. Target for the next service (for the trace chain)
+      # CRITICAL NODE FIX: Set full URL and force GRPC protocol
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317 # <--- Re-add http://
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc                         # <--- Force gRPC
       GO_SERVICE_URL: http://go-service:8080
 
-  # 2. Middle Tier Service
+  # 2. Middle Tier Service (GO) - Requires simple host:port for gRPC
   go-service:
     build:
       context: ./apps/go-service
     ports:
       - "8081:8080"
     environment:
-      # Target for the downstream Python service
       PYTHON_SERVICE_URL: http://python-service:5000
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      # GO FIX: Keep simple host:port
+      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
       OTEL_SERVICE_NAME: go-lgtm-service
 
-  # 3. Final Tier Service
+  # 3. Final Tier Service (PYTHON) - Requires simple host:port and corrected port mapping
   python-service:
     build:
       context: ./apps/python-service
     ports:
-      - "8082:8080"
+      - "8082:5000" # <--- Python port FIX (internal 5000)
     environment:
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      # PYTHON FIX: Keep simple host:port
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_EXPORTER_OTLP_INSECURE: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
       OTEL_SERVICE_NAME: python-lgtm-service
 
   # 4. OpenTelemetry Collector
@@ -42,15 +43,14 @@ services:
     image: otel/opentelemetry-collector:0.90.0
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
-      # Mount a minimal collector config for local Jaeger/Tempo export
       - ./config/local-collector-config.yaml:/etc/otel-collector-config.yaml
     ports:
-      - "4317:4317" # OTLP gRPC receiver
-      - "8888:8888" # Metrics exporter
+      - "4317:4317"
+      - "8888:8888"
 
-  # 5. Local Trace Visualizer (using Jaeger All-in-one for simplicity)
+  # 5. Local Trace Visualizer
   jaeger:
     image: jaegertracing/all-in-one:latest
     ports:
-      - "16686:16686" # Jaeger UI
-      - "14250:14250" # Jaeger gRPC receiver (if collector forwards to it)
+      - "16686:16686"
+      - "14250:14250"

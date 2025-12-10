@@ -23,4 +23,7 @@ EXPOSE 5000
 # Run with OTel auto-instrumentation as a backup/enhancement to manual code
 # CMD ["python", "app.py"] 
 # NOTE: The service should run via the standard Flask entry command if you want to use Flask's default debug settings
-CMD ["flask", "run", "--host=0.0.0.0", "--port=5000"]
+# apps/python-service/Dockerfile
+# ...
+# Run with OTel auto-instrumentation
+CMD ["opentelemetry-instrument", "flask", "run", "--host=0.0.0.0", "--port=5000"]
