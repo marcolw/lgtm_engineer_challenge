@@ -1,6 +1,6 @@
 version: '3.8'
 services:
-  # 1. Entry Point Service (NODE) - Requires explicit protocol and full URL
+  # 1. Entry Point Service (NODE) - Node configuration is correct
   node-service:
     build:
       context: ./apps/nodejs-service
@@ -8,12 +8,11 @@ services:
       - "8080:3000" 
     environment:
       OTEL_SERVICE_NAME: node-lgtm-service
-      # CRITICAL NODE FIX: Set full URL and force GRPC protocol
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317 # <--- Re-add http://
-      OTEL_EXPORTER_OTLP_PROTOCOL: grpc                         # <--- Force gRPC
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       GO_SERVICE_URL: http://go-service:8080
 
-  # 2. Middle Tier Service (GO) - Requires simple host:port for gRPC
+  # 2. Middle Tier Service (GO) - Go configuration is correct
   go-service:
     build:
       context: ./apps/go-service
@@ -21,24 +20,23 @@ services:
       - "8081:8080"
     environment:
       PYTHON_SERVICE_URL: http://python-service:5000
-      # GO FIX: Keep simple host:port
       OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
       OTEL_SERVICE_NAME: go-lgtm-service
 
-  # 3. Final Tier Service (PYTHON) - Requires simple host:port and corrected port mapping
+  # 3. Final Tier Service (PYTHON) - Must include protocol and insecure flag for robust connection
   python-service:
     build:
       context: ./apps/python-service
     ports:
-      - "8082:5000" # <--- Python port FIX (internal 5000)
+      - "8082:5000"
     environment:
-      # PYTHON FIX: Keep simple host:port
-      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
-      OTEL_EXPORTER_OTLP_INSECURE: "true"
+      # CRITICAL FIXES FOR PYTHON EXPORT:
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc 
+      OTEL_EXPORTER_OTLP_INSECURE: "true" 
       OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
       OTEL_SERVICE_NAME: python-lgtm-service
 
-  # 4. OpenTelemetry Collector
+  # 4. OpenTelemetry Collector (unchanged)
   otel-collector:
     image: otel/opentelemetry-collector:0.90.0
     command: ["--config=/etc/otel-collector-config.yaml"]
@@ -48,9 +46,20 @@ services:
       - "4317:4317"
       - "8888:8888"
 
-  # 5. Local Trace Visualizer
+  # 5. Local Trace Visualizer (unchanged)
   jaeger:
     image: jaegertracing/all-in-one:latest
     ports:
       - "16686:16686"
       - "14250:14250"
+
+  # 6. Mock External Service (Java Service) - Final, Corrected Execution
+  java-service:
+    image: python:3.9-slim
+    # CRITICAL FIX: Use printf to write the mock_server.py script safely, 
+    # ensuring correct line breaks, and run it with the Python interpreter.
+    command: [
+      "sh", 
+      "-c", 
+      "pip install flask && printf 'from flask import Flask, jsonify\napp = Flask(__name__)\n@app.route(\"/data\")\ndef data():\n    return jsonify({\"status\": \"ok\", \"service\": \"java-mock\"}), 200\n\nif __name__ == \"__main__\":\n    app.run(host=\"0.0.0.0\", port=80)' > mock_server.py && python mock_server.py"
+    ]
