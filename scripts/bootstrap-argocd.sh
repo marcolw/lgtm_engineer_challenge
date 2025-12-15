@@ -1,51 +1,58 @@
 #!/bin/bash
-# Description: Installs ArgoCD via Helm and retrieves the initial login details.
 
 # --- Configuration ---
-ARGOCD_NAMESPACE="argocd"
-ARGOCD_REPO="https://argoproj.github.io/argo-helm"
-ARGOCD_CHART="argo-cd"
-ARGOCD_VERSION="5.51.0" # Latest stable as of Dec 2025
+# Set the default environment if none is provided
+ENVIRONMENT=${1:-"kind"} # Default to 'kind' if no argument is given
+ARGOCD_CHART_REPO="https://argoproj.github.io/argo-helm"
+ARGOCD_CHART_NAME="argo-cd"
+NAMESPACE="argocd"
 
-echo "--- 🚀 Starting ArgoCD Bootstrap ---"
+# 1. Determine the Values File based on the Environment
+case "$ENVIRONMENT" in
+    "kind")
+        VALUES_FILE="./infra/live/local/values-kind.yaml"
+        # Kind cluster access typically requires a specific kubeconfig path/context
+        KUBECONFIG_CONTEXT="kind-local-dev" 
+        ;;
+    "eks"|"dev"|"prod")
+        # Assuming all EKS environments use the same base file for manual bootstrap
+        VALUES_FILE="./infra/live/dev/values-dev.yaml" # Or dynamically check $2
+        KUBECONFIG_CONTEXT="" # Use default context, or pass a specific one
+        ;;
+    *)
+        echo "Error: Invalid environment specified: $ENVIRONMENT. Must be 'kind', 'eks', 'dev', or 'prod'."
+        exit 1
+        ;;
+esac
 
-# 1. Add Helm Repository (Idempotent)
-helm repo add argo $ARGOCD_REPO --force-update
+# Check if the required values file exists
+if [ ! -f "$VALUES_FILE" ]; then
+    echo "Error: Values file not found at $VALUES_FILE"
+    exit 1
+fi
 
-# 2. Install/Upgrade ArgoCD
-echo "Installing ArgoCD in namespace: $ARGOCD_NAMESPACE"
-helm upgrade --install argocd $ARGOCD_CHART \
-    --repo $ARGOCD_REPO \
-    --namespace $ARGOCD_NAMESPACE \
-    --version $ARGOCD_VERSION \
-    --create-namespace \
-    --set server.service.type=LoadBalancer \
-    --wait
+echo "--- Bootstrapping ArgoCD for $ENVIRONMENT environment using $VALUES_FILE ---"
 
-# 3. Get Initial Password
-echo ""
-echo "--- 🔑 ArgoCD Credentials ---"
-# The secret usually takes a moment to be available
-sleep 10
-ARGOCD_PASSWORD=$(kubectl -n $ARGOCD_NAMESPACE get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
-echo "Initial Username: admin"
-echo "Initial Password: $ARGOCD_PASSWORD"
+# 2. Check and Add Helm Repository (Idempotent)
+helm repo add argo $ARGOCD_CHART_REPO --force-update
 
-# 4. Get LoadBalancer IP
-echo ""
-echo "--- 🔗 ArgoCD Access URL ---"
-echo "Waiting for LoadBalancer to provision (can take 1-3 minutes)..."
-ARGOCD_SERVER_ADDRESS=""
-while [ -z $ARGOCD_SERVER_ADDRESS ]; do
-    sleep 5
-    # Check for both hostname (AWS) and IP (other clouds/minikube)
-    ADDRESS=$(kubectl get svc argocd-server -n argocd -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
-    if [ -z "$ADDRESS" ]; then
-        ADDRESS=$(kubectl get svc argocd-server -n argocd -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-    fi
-    ARGOCD_SERVER_ADDRESS=$ADDRESS
-done
+# 3. Create the Namespace if it doesn't exist
+kubectl create namespace $NAMESPACE --context $KUBECONFIG_CONTEXT --dry-run=client -o yaml | kubectl apply -f -
 
-echo "✅ ArgoCD is running."
-echo "URL: https://$ARGOCD_SERVER_ADDRESS"
-echo "--------------------------------------------------------"
+# 4. Deploy ArgoCD using Helm and the environment-specific values file
+helm upgrade --install $NAMESPACE $ARGOCD_CHART_NAME \
+    --repo $ARGOCD_CHART_REPO \
+    --namespace $NAMESPACE \
+    -f $VALUES_FILE \
+    --context $KUBECONFIG_CONTEXT \
+    --wait 
+
+# 5. Output Access Instructions
+if [ "$ENVIRONMENT" == "kind" ]; then
+    echo " "
+    echo "--- ArgoCD Deployment Complete ---"
+    echo "The ArgoCD server is running on a NodePort (usually 30080) on the Kind node."
+    echo "Use 'kubectl get svc -n argocd' to find the exact port."
+    echo "Access via: http://localhost:<NodePort>"
+    echo "Initial password is the name of the 'argocd-server' pod."
+fi

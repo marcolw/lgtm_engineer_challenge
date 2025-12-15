@@ -1,0 +1,18 @@
+# charts/observability/values.yaml
+
+# Defines the environment for conditional logic
+environment: "kind" # Default to 'kind' for safety
+
+# How the collector should run (Deployment for Kind, DaemonSet for EKS)
+collector:
+  mode: deployment 
+  replicas: 1
+  serviceAccountName: otel-collector
+
+# Collector-specific configurations
+config:
+  receivers:
+    - otlp
+  exporters:
+    - jaeger
+  processors: []

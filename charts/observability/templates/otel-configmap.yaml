@@ -1,0 +1,33 @@
+# charts/observability/templates/otel-configmap.yaml (Concept)
+
+data:
+  # The YAML configuration for the OTel Collector itself
+  collector.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+          http:
+    processors:
+      # EKS only: Add the batch processor and k8s attributes processor
+      {{- if eq .Values.environment "eks" }}
+      batch: {}
+      k8sattributes: {}
+      {{- end }}
+      
+    exporters:
+      # Kind only: Export directly to Jaeger running in the cluster
+      {{- if eq .Values.environment "kind" }}
+      jaeger:
+        endpoint: jaeger-collector:14250
+        insecure: true
+      {{- end }}
+      
+      # EKS only: Export to external AWS/Cloud provider or use a second tier collector/agent
+      {{- if eq .Values.environment "eks" }}
+      awsemf: {}
+      prometheusremotewrite: {}
+      # ... other production exporters
+      {{- end }}
+    
+    # ... service pipeline definitions based on environment

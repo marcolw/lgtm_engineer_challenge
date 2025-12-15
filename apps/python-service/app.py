@@ -19,24 +19,23 @@ app = Flask(__name__)
 # It uses the trace provider initialized by environment variables.
 app.wsgi_app = OpenTelemetryMiddleware(app.wsgi_app)
 
-FlaskInstrumentor().instrument_app(app) # Auto-instrument Flask (redundant but safe)
+FlaskInstrumentor().instrument_app(app) # Auto-instrument Flask
 RequestsInstrumentor().instrument() # Auto-instrument outgoing requests
 
-@app.route("/api") # <--- FIX: Ensure this endpoint matches the Go call site!
+@app.route("/api")    # Add route and Manual Instrumentation
 def process():
-    # ... rest of your code remains the same ...
-    with tracer.start_as_current_span("heavy-calculation"):
+    with tracer.start_as_current_span("heavy-calculation"):     # Manual Span
         current_span = trace.get_current_span()
-        current_span.set_attribute("calculation.complexity", "high")
+        current_span.set_attribute("calculation.complexity", "high")    # Custom Metadata
         
         # Simulate Logic
         time.sleep(0.1)
         
         # Manual log event attached to trace
-        current_span.add_event("Starting calculation...")
+        current_span.add_event("Starting calculation...")   # Log Event
         try:
             # Simulate external call (Note: This external service does not exist in your demo)
-            requests.get("http://java-service/data")
+            requests.get("http://java-service/data")        # Auto-Instrumentation Trigger. The RequestsInstrumentor intercepts this call.
         except Exception as e:
             current_span.record_exception(e)
             

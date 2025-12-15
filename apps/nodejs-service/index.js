@@ -12,7 +12,7 @@ const GO_SERVICE_URL = process.env.GO_SERVICE_URL || 'http://go-service:8080';
 const sdk = new NodeSDK({
   // Register the instrumentation here
   instrumentations: [
-    new HttpInstrumentation(),
+    new HttpInstrumentation(),    // Enables automatic tracing for HTTP calls, auto-instrumentation.
   ],
   traceExporter: new OTLPTraceExporter({
     // Uses the Docker Compose service name for local testing
@@ -21,12 +21,12 @@ const sdk = new NodeSDK({
 });
 sdk.start();
 
-const express = require('express');
+const express = require('express');   // Node.js web application framework
 const app = express();
 const tracer = opentelemetry.trace.getTracer('nodejs-service');
 
 // 2. ROOT ROUTE: Redirects or provides a welcome message (Prevents "Cannot GET /")
-app.get('/', (req, res) => {
+app.get('/', (req, res) => {    // Tracing via auto-instrumentation
     res.json({ 
         service: 'NodeJS Entry Service',
         status: 'OK',

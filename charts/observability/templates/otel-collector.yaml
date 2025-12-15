@@ -1,0 +1,12 @@
+# charts/observability/templates/otel-collector.yaml (Concept)
+
+# Switches between Deployment (Kind) and DaemonSet (EKS)
+{{- if eq .Values.collector.mode "daemonset" }}
+apiVersion: apps/v1
+kind: DaemonSet
+{{- else }}
+apiVersion: apps/v1
+kind: Deployment
+{{- end }}
+
+# ... rest of the deployment spec

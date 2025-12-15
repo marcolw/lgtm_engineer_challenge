@@ -1,0 +1,45 @@
+# k8s/observability/observability-app.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: observability-stack
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    # 1. Point to your local chart source
+    repoURL: git@github.com:marco/lgtm_engineer_challenge.git
+    targetRevision: HEAD
+    path: charts/observability # The local wrapper chart
+
+    # 2. Helm Configuration (Allows for dynamic value file loading)
+    helm:
+      valueFiles:
+      # This is the CRITICAL part. ArgoCD will try to load a values file 
+      # from the Git repository based on the cluster name or a label.
+      #
+      # Option A: Standard Cluster Labeling (Recommended)
+      # ArgoCD looks for a cluster with a label matching the 'name' key.
+      # We use 'name' here, which will be the environment name (dev, prod, local).
+      - $cluster.metadata.labels.environment/values.yaml
+
+      # Option B: Fallback (If cluster labels aren't set)
+      # You could explicitly list files, but the dynamic lookup is superior.
+      
+      # For this to work, we must ensure your EKS cluster and Kind cluster
+      # have a cluster-level label set in ArgoCD's settings:
+      # Key: environment
+      # Value: dev (for EKS) or local (for Kind)
+
+  destination:
+    server: https://kubernetes.default.svc # Deploy to the current cluster
+    namespace: observability
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true

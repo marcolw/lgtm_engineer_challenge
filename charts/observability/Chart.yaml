@@ -1,0 +1,26 @@
+# charts/observability/Chart.yaml
+apiVersion: v2
+name: observability-stack
+description: A wrapper chart for deploying a full observability stack (OTel, Prometheus, Grafana, Jaeger).
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+dependencies:
+  # 1. Prometheus and Grafana (Best managed by the kube-prometheus-stack)
+  - name: kube-prometheus-stack
+    version: "58.2.0" # Use a known stable version
+    repository: "https://prometheus-community.github.io/helm-charts"
+    alias: prometheus-stack # Use an alias for clean value overriding
+
+  # 2. Jaeger (Centralized tracing backend)
+  - name: jaeger
+    version: "0.80.3" # Use a known stable version
+    repository: "https://jaegertracing.github.io/helm-charts"
+    alias: jaeger-tracing # Use an alias for clean value overriding
+
+  # 3. Loki (Logging system - optional but highly recommended for a full stack)
+  - name: loki
+    version: "5.45.0" # Use a known stable version
+    repository: "https://grafana.github.io/helm-charts"
+    alias: loki-logging # Use an alias for clean value overriding

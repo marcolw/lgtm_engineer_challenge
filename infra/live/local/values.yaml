@@ -1,0 +1,65 @@
+# infra/live/local/values-kind.yaml
+
+## --- ARGOCD OVERRIDES ---
+# (Using the official ArgoCD Helm Chart structure)
+# Objective: Accessible via local machine and low resource usage.
+
+server:
+  # 1. Access: Use NodePort instead of the default LoadBalancer/ClusterIP
+  # This makes it accessible via the IP of the Kind cluster node (localhost).
+  service:
+    type: NodePort
+    nodePort: 30080 # Choose a common port in the NodePort range (30000-32767)
+    
+  # 2. Resources: Disable TLS and run insecure for ease of local access
+  # This simplifies the connection process.
+  insecure: true
+  
+  # 3. High Availability: Disable HA for low resource consumption on a single Kind node.
+  replicas: 1
+
+dex:
+  # 4. Auth: We typically don't set up full SSO/OIDC on a local cluster.
+  enabled: false
+
+repoServer:
+  # 5. Resources: Use minimum replicas
+  replicas: 1
+  
+# 6. Persistence: Use Kind's default StorageClass, which is often ephemeral.
+# We explicitly set this to avoid volume provisioning errors if the chart defaults to an AWS class.
+redis:
+  master:
+    persistence:
+      enabled: true
+      storageClass: standard # Kind's default storage class
+
+
+## --- JAEGER OVERRIDES ---
+# (Assuming you are using the official Jaeger Helm Chart or a similar custom one)
+
+query:
+  # 1. Access: Use NodePort for the Jaeger Query service to view traces in the browser.
+  service:
+    type: NodePort
+    nodePort: 30081
+
+storage:
+  # 2. Backend: Use memory storage for ephemeral local testing.
+  type: memory
+  
+collector:
+  # 3. Access: Ensure the OTLP gRPC port (4317) is available via ClusterIP.
+  service:
+    type: ClusterIP
+
+## --- OpenTelemetry Collector Overrides ---
+# (Using the custom chart in charts/observability)
+
+mode: deployment # Run as a simple Deployment (not a DaemonSet for EKS)
+
+config:
+  # 4. Collector configuration (This points to the Jaeger service in the same cluster)
+  exporters:
+    jaeger:
+      endpoint: "jaeger-collector:14250" # Assuming internal name/port of Jaeger Collector

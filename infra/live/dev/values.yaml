@@ -1,0 +1,79 @@
+# infra/live/dev/values-dev.yaml
+
+## --- ARGOCD OVERRIDES ---
+# Objective: LoadBalancer for external access, HA for stability.
+
+server:
+  # 1. Access: Use LoadBalancer for access via AWS NLB/ALB (requires controller).
+  service:
+    type: LoadBalancer
+    # Standard AWS annotations for NLB usage
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+      service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+      
+  # 2. High Availability: Increase replicas for stability
+  replicas: 2 
+
+dex:
+  # 3. Auth: Enable Dex for integration with corporate OIDC/SSO (optional for dev, but standard)
+  enabled: true
+  
+redis:
+  master:
+    # 4. Persistence: Use a standard AWS StorageClass (e.g., gp3) for reliable storage.
+    persistence:
+      enabled: true
+      storageClass: gp3 # AWS standard for general purpose storage
+      size: 10Gi
+  
+## --- JAEGER OVERRIDES ---
+# Objective: Use high-capacity storage for trace data.
+
+query:
+  # 1. Access: Use a standard ClusterIP and expose via a dedicated Ingress (managed separately).
+  service:
+    type: ClusterIP
+
+storage:
+  # 2. Backend: Use ElasticSearch or S3/Parquet for long-term, high-capacity storage.
+  # (If using ES, you'd configure the client details here)
+  type: elasticsearch
+  elasticsearch:
+    servers: ["http://elasticsearch-master:9200"] # Example internal service name
+    
+collector:
+  # 3. Access: Ensure the OTLP gRPC port (4317) is available via ClusterIP.
+  service:
+    type: ClusterIP
+
+
+## --- OpenTelemetry Collector Overrides ---
+# (Using the custom chart in charts/observability)
+
+# 4. CRITICAL: Switch the environment parameter for conditional logic in the chart templates.
+environment: "eks" 
+
+collector:
+  # 5. Resource Type: Run the collector as a DaemonSet for node-level metric/log collection.
+  mode: daemonset 
+  replicas: null # DaemonSets ignore replicas, running one per node.
+  
+  # 6. AWS Permissions: Assign an IAM role to the service account (IRSA).
+  serviceAccount:
+    annotations:
+      # This annotation links the K8s service account to a specific AWS IAM Role ARN
+      eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/otel-collector-eks-role"
+      
+config:
+  # 7. EKS Exporters: Configure the collector to export to AWS services.
+  exporters:
+    # Example: Send metrics and logs to AWS CloudWatch
+    awsemf:
+      region: ap-southeast-2
+      # ... full configuration for logs/metrics
+    
+  # 8. EKS Processors: Enable production processors.
+  processors:
+    - batch
+    - k8sattributes # Enriches traces/metrics with Kubernetes metadata
